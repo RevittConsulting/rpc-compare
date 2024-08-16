@@ -1,0 +1,32 @@
+{
+    "getBlockByNumber": {
+        "jsonrpc": "2.0",
+        "method": "eth_getBlockByNumber",
+        "params": ["0x1", true],
+        "id": 1
+    },
+    "getTransactionByHash": {
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionByHash",
+        "params": ["0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"],
+        "id": 1
+    },
+    "getBlockNumber": {
+        "jsonrpc": "2.0",
+        "method": "eth_blockNumber",
+        "params": [],
+        "id": 1
+    },
+    "getGasPrice": {
+        "jsonrpc": "2.0",
+        "method": "eth_gasPrice",
+        "params": [],
+        "id": 1
+    },
+    "zkevm_getBatchByNumber": {
+        "jsonrpc": "2.0",
+        "method": "zkevm_getBatchByNumber",
+        "params": ["0x1"],
+        "id": 1
+    }
+}

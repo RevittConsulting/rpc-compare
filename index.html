@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON-RPC Request Comparator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.5.0/jsoneditor.min.css">
+    <style>
+       
+Copy code
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+}
+
+.container { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    width: 100%; 
+    margin: 0; 
+    padding: 0 20px; /* Padding to avoid content touching the screen edges */
+    box-sizing: border-box;
+}
+
+.row { 
+    display: flex; 
+    justify-content: space-between; 
+    width: 100%; 
+    margin-top: 10px; 
+}
+
+textarea { 
+    width: 100%; 
+    height: 200px; 
+    margin-bottom: 10px; 
+}
+
+input[type="text"], .response-well, select, button { 
+    width: 32%; 
+    margin-bottom: 10px; 
+}
+
+.response-well { 
+    padding: 10px; 
+    border: 1px solid #ccc; 
+    background: #f9f9f9; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+}
+
+button { 
+    padding: 10px 20px; 
+    margin-top: 10px; 
+}
+
+select { 
+    width: 100%; 
+    margin-bottom: 10px; 
+    padding: 5px; 
+    box-sizing: border-box;
+}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>JSON-RPC Request Comparator</h2>
+    <select id="requestMenu" onchange="populateRequest()">
+        <option value="">Select a prefilled JSON-RPC request</option>
+        <option value="getBlockByNumber">eth_getBlockByNumber</option>
+        <option value="getTransactionByHash">eth_getTransactionByHash</option>
+        <option value="getBlockNumber">eth_blockNumber</option>
+        <option value="getGasPrice">eth_gasPrice</option>
+        <option value="zkevm_getBatchByNumber">zkevm_getBatchByNumber</option>
+    </select>
+    <textarea id="jsonRequest" placeholder="Enter JSON-RPC request body"></textarea>
+    <select id="environment" onchange="populateUrls()">
+        <option value="">Select Environment</option>
+        <option value="integration8">Integration8: ZkEVM, Sequencer, Erigon</option>
+    </select>
+    <div class="row">
+        <input type="text" id="url1" placeholder="Node URL 1">
+        <input type="text" id="url2" placeholder="Node URL 2">
+        <input type="text" id="url3" placeholder="Node URL 3">
+    </div>
+    <button onclick="sendRequest()">Send Request</button>
+    <div class="row">
+        <div class="response-well" id="response1"></div>
+        <div class="response-well" id="response2"></div>
+        <div class="response-well" id="response3"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.5.0/jsoneditor.min.js"></script>
+<script>
+function populateUrls() {
+    const environment = document.getElementById('environment').value;
+    const urls = {
+        integration8: [
+            "http://34.175.214.161:18505", // ZkEVM
+            "http://34.175.214.161:18123", // Sequencer
+            "http://34.175.214.161:18124"  // Erigon
+        ]
+    };
+
+    if (environment in urls) {
+        document.getElementById('url1').value = urls[environment][0];
+        document.getElementById('url2').value = urls[environment][1];
+        document.getElementById('url3').value = urls[environment][2];
+    }
+}
+
+function populateRequest() {
+    const requestType = document.getElementById('requestMenu').value;
+    const requests = {
+        getBlockByNumber: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_getBlockByNumber",
+            params: ["0x1", true],
+            id: 1
+        }, null, 2),
+        getTransactionByHash: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_getTransactionByHash",
+            params: ["0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"],
+            id: 1
+        }, null, 2),
+        getBlockNumber: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_blockNumber",
+            params: [],
+            id: 1
+        }, null, 2),
+        getGasPrice: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "eth_gasPrice",
+            params: [],
+            id: 1
+        }, null, 2),
+        zkevm_getBatchByNumber: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "zkevm_getBatchByNumber",
+            params: ["0x1"],
+            id: 1
+        }, null, 2)
+    };
+
+    if (requestType in requests) {
+        document.getElementById('jsonRequest').value = requests[requestType];
+    }
+}
+
+async function sendRequest() {
+    const jsonRequest = document.getElementById('jsonRequest').value;
+    const urls = [
+        document.getElementById('url1').value,
+        document.getElementById('url2').value,
+        document.getElementById('url3').value
+    ];
+
+    const responses = await Promise.all(urls.map(url => fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonRequest
+    }).then(response => response.json()).catch(error => error.message)));
+
+    displayJson(responses);
+    highlightDifferences(responses);
+}
+
+function displayJson(responses) {
+    const responseContainers = [
+        document.getElementById('response1'),
+        document.getElementById('response2'),
+        document.getElementById('response3')
+    ];
+
+    responseContainers.forEach((container, i) => {
+        if (container.jsonEditor) {
+            container.jsonEditor.destroy();
+        }
+
+        const editor = new JSONEditor(container, {
+            mode: 'view',
+            onChange: () => adjustHeight(container),
+            sortObjectKeys: true
+        });
+
+        editor.set(responses[i]);
+        editor.expandAll(); // Ensure all JSON elements are expanded by default
+        container.jsonEditor = editor;
+
+        // Initial height adjustment
+        adjustHeight(container);
+    });
+}
+
+
+
+function adjustHeight(container) {
+    container.style.height = 'auto';
+    const contentHeight = container.querySelector('.jsoneditor').scrollHeight;
+    container.style.height = `${contentHeight}px`;
+}
+
+function highlightDifferences(responses) {
+    const prettyResponse1 = JSON.stringify(responses[0], null, 2);
+    const prettyResponse2 = JSON.stringify(responses[1], null, 2);
+    const prettyResponse3 = JSON.stringify(responses[2], null, 2);
+
+    const diff1 = Diff.createTwoFilesPatch('Response 1', 'Response 2', prettyResponse1, prettyResponse2);
+    const diff2 = Diff.createTwoFilesPatch('Response 2', 'Response 3', prettyResponse2, prettyResponse3);
+    const diff3 = Diff.createTwoFilesPatch('Response 1', 'Response 3', prettyResponse1, prettyResponse3);
+
+    document.getElementById('response1').innerHTML = Diff2Html.getPrettyHtml(diff1);
+    document.getElementById('response2').innerHTML = Diff2Html.getPrettyHtml(diff2);
+    document.getElementById('response3').innerHTML = Diff2Html.getPrettyHtml(diff3);
+}
+
+const Diff = {
+    createTwoFilesPatch: function(oldFileName, newFileName, oldStr, newStr) {
+        return `diff --git a/${oldFileName} b/${newFileName}\n` +
+               `--- a/${oldFileName}\n` +
+               `+++ b/${newFileName}\n` +
+               Diff.diffLines(oldStr, newStr).map(part => {
+                   const prefix = part.added ? '+' : part.removed ? '-' : ' ';
+                   return `${prefix}${part.value}`;
+               }).join('\n');
+    },
+
+    diffLines: function(oldStr, newStr) {
+        const diffs = [];
+        const oldLines = oldStr.split('\n');
+        const newLines = newStr.split('\n');
+        let i = 0, j = 0;
+
+        while (i < oldLines.length && j < newLines.length) {
+            if (oldLines[i] === newLines[j]) {
+                diffs.push({ value: oldLines[i] });
+                i++; j++;
+            } else {
+                diffs.push({ value: newLines[j], added: true });
+                j++;
+                diffs.push({ value: oldLines[i], removed: true });
+                i++;
+            }
+        }
+
+        for (; i < oldLines.length; i++) diffs.push({ value: oldLines[i], removed: true });
+        for (; j < newLines.length; j++) diffs.push({ value: newLines[j], added: true });
+
+        return diffs;
+    }
+};
+</script>
+
+</body>
